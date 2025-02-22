@@ -1,0 +1,25 @@
+---
+name: "Análisis de Caso 1"
+output_dir: "."
+navbar:
+  title: "📊 Análisis Estadístico de Cereales"
+  left:
+    - text: "Estadística Descriptiva"
+      icon: fa-chart-bar
+      href: index.html
+    - text: "Estadística Inferencial"
+      icon: fa-calculator
+      href: about.html
+  right:
+    - text: "Autores: Carolina Gonzalez Becerra, Nicole García Bernal"
+      href: "#"
+output:
+  html_document:
+    theme: yeti
+    highlight: tango
+    toc: true                
+    toc_float: false          
+    toc_depth: 4             
+    css: styles.css          
+---
+

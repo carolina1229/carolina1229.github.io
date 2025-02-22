@@ -1,0 +1,304 @@
+---
+title: "Estimación estadística"
+output:
+  html_document:
+    toc: true
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    code_download: true
+    theme: lumen 
+    toc_depth: 3 
+    css: styles.css
+    pandoc_args: ["--variable=footnotes-title:Bibliografía"]
+---
+```{r setup, include=FALSE}
+library(knitr)
+library(readxl)
+library(DT)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+cereal <- read_excel("C:/Users/acaro/Downloads/cereal.xlsx")
+```
+```{css,echo=FALSE}
+.column {display:flex;}
+h1{color:rgb(26, 72, 112)}
+h2{color:rgb(26, 72, 112)}
+h3{color:rgb(26, 72, 112)}
+```
+
+# Muestreo
+
+# 6.Tamaño de la muestra si  se desea obtener un error de 25 miligramos en la estimación del sodio promedio con un 95% de confianza 
+
+```{r}
+# 1. Definición de los datos necesarios para el cálculo del tamaño de la muestra
+desvest_sodiun <- sd(cereal$sodium)  # Desviación estándar de la variable Sodium (poblacional)
+margen_error <- 25 # Margen de error en mg
+nivel_confianza <- 0.95 # Nivel de confianza del 95%
+
+# 2. Obtener el valor crítico Z correspondiente al nivel de confianza
+z_alpha_2 <- qnorm(1 - (1 - nivel_confianza) / 2)  # Valor crítico para 95%
+
+# 3. Aplicar la fórmula del tamaño de la muestra para estimar la media poblacional
+tamaño_muestra <- ( (z_alpha_2 * desvest_sodiun) / margen_error )^2
+
+# 4. Redondear al entero superior puesto que el tamaño de muestra debe ser entero
+tamaño_muestra_entero <- ceiling(tamaño_muestra)
+
+cat("El tamaño de la muestra es", tamaño_muestra_entero)
+
+```
+
+Para estimar la media del contenido de sodio en los cereales con un 95% de confianza y un margen de error de 25 mg, se determinó que se requiere una muestra de **44 observaciones**. Lo anterior indica que, bajo estas condiciones, al tomar una muestra de 44 cereales, el intervalo de confianza construido contendrá la media poblacional del sodio con una alta certeza estadística. 
+
+# 7. Muestreo aleatorio simple para seleccionar una muestra de tamaño 44 y medidas de tendencia central y dispersión de la muestra con respecto a la variable Sodium.
+
+```{r}
+# 1.Definición de la semilla para la reproducibilidad del muestreo
+set.seed(123)
+
+# 2.Se enumeran los cereales asignándoles un ID único para mantener el orden y facilitar su identificación después del muestreo.
+cereal$ID_Original <- 1:nrow(cereal) 
+
+# 3.Definición del tamaño de la muestra (determinado previamente) 
+n_1 <- tamaño_muestra_entero
+
+# 4. Selección de la muestra aleatoria SIN reemplazo (muestreo aleatorio simple)
+muestreo_aleatorio <- sample(1:nrow(cereal), size = tamaño_muestra_entero, replace = FALSE)
+
+# 5.Creación del subconjunto de datos con los cereales seleccionados en la muestra
+muestra_aleatoria <- cereal[muestreo_aleatorio, ]
+
+# Tabla que presenta los datos de la muestra seleccionada 
+datatable(muestra_aleatoria[, c("ID_Original", names(cereal)[names(cereal) != "ID_Original"])], 
+          options = list(
+            pageLength = 10,
+            autoWidth = TRUE,
+            searching = TRUE,
+            scrollX = TRUE,
+            lengthMenu = list(c(10, 20, 50, -1), c("10", "20", "50", "Todos"))
+          ), caption = "Muestra Aleatoria de Cereales",
+             rownames = FALSE
+          )
+```
+```{r}
+# Extraer los valores de la variable sodium de los elementos de la muestra
+valores_muestra <- muestra_aleatoria$sodium  
+
+# Definir el DataFrame con las medidas estadísticas
+medidas_muestra_sodium <- data.frame(
+  Medida_muestra = c("Media", "Mediana", "Moda", "Varianza", "Desviación Estándar", "Rango", "Coeficiente de Variación (%)"),
+  Valor_muestra = c(
+    round(mean(valores_muestra, na.rm = TRUE), 2),  
+    round(median(valores_muestra, na.rm = TRUE), 2),  
+    round(as.numeric(names(which.max(table(valores_muestra)))), 2),  
+    round(var(valores_muestra, na.rm = TRUE), 2),  
+    round(sd(valores_muestra, na.rm = TRUE), 2),  
+    round(max(valores_muestra, na.rm = TRUE) - min(valores_muestra, na.rm = TRUE), 2),
+    round((sd(valores_muestra, na.rm = TRUE) / mean(valores_muestra, na.rm = TRUE)) * 100, 2) # Coeficiente de variación (%)
+  )
+)
+
+medidas_muestra_sodium %>%
+  kable(
+    caption = "Medidas de Tendencia Central y Dispersión",
+    col.names = c("Estadístico", "Valor"),
+    align = "c"
+  ) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(0, background = "#D9D9D9", bold = TRUE, extra_css = "border: 1px solid black !important;") %>%
+  column_spec(1:2, border_left = TRUE, border_right = TRUE) %>%
+  kable_classic(full_width = FALSE, html_font = "Cambria")
+
+```
+
+# 8. Muestreo sistemático para seleccionar una muestra de 40 marcas de cereal.
+
+```{r}
+# 1. Definición de la semilla para la reproducibilidad del muestreo
+set.seed(123)
+
+# 2. Definición de datos necesarios para el muestreo sistemático 
+n_2 <- 40  # Tamaño de la muestra
+N <- nrow(cereal)  # Tamaño de la población
+
+# 3. Calcular el salto entre elementos
+k <- floor(N / n_2)  #Se determina cada cuántos elementos se seleccionará un dato
+
+# 4. Cálculo de inicio del muestreo
+a <- sample(1:k, 1,replace = FALSE)
+
+# 5. Filas seleccionadas iniciando en a y saltando de k en k
+filas <- seq(from = a, length.out = n_2, by = k)
+
+# 6. Extaer de la base de datos las filas seleccionadas para la muestra
+muestreo_sistematico <- cereal[filas, ]
+
+# Visualización de resultados 
+cat("Tamaño de la población (N):", N, "\n")
+cat("Tamaño de la muestra (n):", n_2, "\n")
+cat("Salto entre elementos (k):", k, "\n")
+cat("Primer elemento seleccionado (a):", a, "\n")
+
+# Elementos seleccionados - representación en tabla
+datatable(
+  muestreo_sistematico[, c("ID_Original", names(cereal)[names(cereal) != "ID_Original"])], 
+  options = list(
+    pageLength = 10,
+    autoWidth = TRUE,
+    searching = TRUE,
+    scrollX = TRUE,
+    lengthMenu = list(c(10, 20, 50, -1), c("10", "20", "50", "Todos"))
+  ), 
+  caption = " Muestra Sistemática de Cereales",
+  rownames = FALSE  
+)
+```
+Como se puede observar, el muestreo sistemático seleccionó 40 elementos de una población de 77, con un intervalo de k = 1, lo que significa que se eligió un dato tras otro sin dejar espacios entre ellos. Como el primer elemento seleccionado fue a = 1, la muestra quedó compuesta por los primeros 40 registros de la base de datos. Aunque técnicamente es un muestreo sistemático, en este caso no hay una separación real entre los elementos seleccionados, lo que podría influir en la representatividad si los datos siguen algún orden específico en la población.
+
+# 9. Muestreo estratificado proporcional para seleccionar una muestra de 40 marcas de cereal estratificando por mfr (Manufacturer of cereal).
+
+```{r}
+# 1. Definición de la semilla para la reproducibilidad del muestreo
+set.seed(123)
+
+# 2. Definir los datos iniciales del muestreo estratificado 
+N <- nrow(cereal)  #Tamaño total de la población
+n_total <- 40  #Tamaño de la muestra seleccionada
+r <- 7  #Número de estratos, dado que hay 7 fabricantes distintos (A, G, K, N, P, Q, R)
+
+# 3. Crear los estratos en función del fabricante (mfr)
+estrato_A <- dplyr::filter(cereal, mfr == 'A')
+estrato_G <- dplyr::filter(cereal, mfr == 'G')
+estrato_K <- dplyr::filter(cereal, mfr == 'K')
+estrato_N <- dplyr::filter(cereal, mfr == 'N')
+estrato_P <- dplyr::filter(cereal, mfr == 'P')
+estrato_Q <- dplyr::filter(cereal, mfr == 'Q')
+estrato_R <- dplyr::filter(cereal, mfr == 'R')
+
+# 4. Calcular la fracción de muestreo
+w <- n_total / N #Proporción de la población que será incluida en la muestra
+print(paste("Fracción de muestreo (w):", round(w, 4)))
+
+# 5. Determinar el tamaño de cada estrato en la población
+N_A <- nrow(estrato_A)
+N_G <- nrow(estrato_G)
+N_K <- nrow(estrato_K)
+N_N <- nrow(estrato_N)
+N_P <- nrow(estrato_P)
+N_Q <- nrow(estrato_Q)
+N_R <- nrow(estrato_R)
+# Mostrar la distribución inicial de los estratos en la población
+print(data.frame(Estrato = c("A", "G", "K", "N", "P", "Q", "R"),
+                 Población = c(N_A, N_G, N_K, N_N, N_P, N_Q, N_R)))
+
+# 6.Calcular el tamaño de la muestra en cada estrato (muestreo proporcional)
+n_A <- floor(N_A * w)
+n_G <- floor(N_G * w)
+n_K <- floor(N_K * w)
+n_N <- floor(N_N * w)
+n_P <- floor(N_P * w)
+n_Q <- floor(N_Q * w)
+n_R <- floor(N_R * w)
+#Mostrar el tamaño de muestra proporcional calculado antes del ajuste
+print(
+  data.frame(
+  Estrato = c("A", "G", "K", "N", "P", "Q", "R"),
+  Muestra_Proporcional = c(n_A, n_G, n_K, n_N, n_P, n_Q, n_R)
+))
+
+# 7. Verificar si la suma de la muestra coincide con n_total y ajustar si es necesario
+tamaño_muestra_calculado <- n_A + n_G + n_K + n_N + n_P + n_Q + n_R
+print(paste("Tamaño total de la muestra calculada antes del ajuste:", tamaño_muestra_calculado))
+
+# Ajuste de muestra si la suma no es exactamente 40
+diferencia <- n_total - tamaño_muestra_calculado
+
+if (diferencia != 0) {
+  print(paste("Ajuste requerido: faltan", diferencia, "elementos."))
+
+  # Ordenar los estratos de mayor a menor tamaño para asignar los +1
+  estratos_ordenados <- data.frame(
+    Estrato = c("A", "G", "K", "N", "P", "Q", "R"), 
+    N = c(N_A, N_G, N_K, N_N, N_P, N_Q, N_R)
+  ) %>%
+    arrange(desc(N))
+
+  # Asignar los +1 a los estratos más grandes
+  for (i in 1:abs(diferencia)) {
+    estrato_seleccionado <- estratos_ordenados$Estrato[i]
+    
+    if (estrato_seleccionado == "A") n_A <- n_A + 1
+    if (estrato_seleccionado == "G") n_G <- n_G + 1
+    if (estrato_seleccionado == "K") n_K <- n_K + 1
+    if (estrato_seleccionado == "N") n_N <- n_N + 1
+    if (estrato_seleccionado == "P") n_P <- n_P + 1
+    if (estrato_seleccionado == "Q") n_Q <- n_Q + 1
+    if (estrato_seleccionado == "R") n_R <- n_R + 1
+
+    print(paste("Se añadió +1 al estrato:", estrato_seleccionado))
+  }
+}
+
+# 9. Mostrar la distribución final de la muestra
+print(
+  data.frame(
+  Estrato = c("A", "G", "K", "N", "P", "Q", "R"),
+  Muestra_Final = c(n_A, n_G, n_K, n_N, n_P, n_Q, n_R)
+), row.names = FALSE)
+
+# 10. Seleccionar aleatoriamente las muestras de cada estrato
+muestra_A <- dplyr::sample_n(estrato_A, n_A)
+muestra_G <- dplyr::sample_n(estrato_G, n_G)
+muestra_K <- dplyr::sample_n(estrato_K, n_K)
+muestra_N <- dplyr::sample_n(estrato_N, n_N)
+muestra_P <- dplyr::sample_n(estrato_P, n_P)
+muestra_Q <- dplyr::sample_n(estrato_Q, n_Q)
+muestra_R <- dplyr::sample_n(estrato_R, n_R)
+
+# 11. Unir todas las muestras en un solo dataframe
+muestra_final <- dplyr::bind_rows(muestra_A, muestra_G, muestra_K, muestra_N, muestra_P, muestra_Q, muestra_R)
+
+datatable(
+  muestra_final, 
+  options = list(
+    pageLength = 10,
+    autoWidth = TRUE,
+    searching = TRUE,
+    scrollX = TRUE,
+    lengthMenu = list(c(10, 20, 50, -1), c("10", "20", "50", "Todos"))
+  ), 
+  caption = "Muestra Estratificada de Cereales por Fabricante",
+  rownames = FALSE
+)
+
+```
+
+El muestreo estratificado nos permitió seleccionar 40 marcas de cereal, asegurando que cada fabricante estuviera representado de manera justa según su presencia en la población. La distribución final fue: G (12), K (12), N (3), P (5), Q (4), R (4) y A (0). Se ajustaron los valores para que el total sumara exactamente 40, manteniendo el equilibrio en la muestra. Un detalle interesante es que el fabricante A no quedó en la selección, lo que indica que tenía muy pocos productos en la base de datos. En general, como se puede observar, este tipo de muestreo permite que cada fabricante esté representado en la muestra según su presencia en la población total, lo que permite obtener un análisis más representativo y confiable sobre la distribución de los fabricantes de cereal.
+
+# Intervalos de confianza
+
+# 10. Empleando la muestra obtenida en el punto 7, obtenga un intervalo del 90%, 95%, 97.5% y 99%. Compara los errores de estimación y establece una conclusión.
+
+Teniendo en cuenta que en el apartado 7 se realizó un muestreo aleatorio simple para seleccionar una muestra de tamaño \( n = 44 \), este valor será considerado en el cálculo de los siguientes intervalos de confianza. Asimismo, emplearemos la media muestral \( \bar{x} \), obtenida a partir de dicha muestra con respecto a la variable Sodium, para desarrollar los cálculos. Dado que se conoce la desviación estándar poblacional de esta variable (apartado de estadística descriptiva), utilizaremos la fórmula del intervalo de confianza para muestras grandes \( (n \geq 30) \), cuando la desviación estándar poblacional es conocida: 
+
+\[
+IC = \bar{x} \pm Z_{\alpha/2} \left( \frac{\sigma}{\sqrt{n}} \right)
+\]
+
+## 1. Definición de datos 
+```{r}
+muestra_confianza<-44 #Tamaño de muestra tomada del punto 7
+media_muestral <- mean(valores_muestra, na.rm = TRUE)
+desvest_poblacion <- sd(cereal$sodium)
+nivel_confianza <- c(0.90,0.95,0.975,0.99) 
+
+cat("Tamaño de la muestra (n):", muestra_confianza, "\n")
+cat("Media muestral (x̄):", round(media_muestral, 4), "\n")
+cat("Desviación estándar poblacional (σ):", round(desvest_poblacion, 4), "\n")
+cat("Niveles de confianza:", nivel_confianza * 100, "%\n")
+
+```
